@@ -1,6 +1,6 @@
-import minimist from 'minimist'
+import minimist from 'minimist';
 
-const args = minimist(process.argv, {
+const args = minimist(process.argv.slice(2), {
     alias: {
         writers: 'w',
         indexes: 'i',
@@ -11,8 +11,7 @@ const args = minimist(process.argv, {
         swarm: true
     },
     boolean: ['ram', 'swarm']
-})
+});
 
 console.log('Received arguments:');
 console.log(args);
-
