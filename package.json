@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "hrepl index.js -s ./db --swarm false -n ff184becdab95cb0 -w ff184becdab95cb0b6f45910a25070967d446689fbcf51f4e3df97baeea2d718 -i 863acd316fbf151d18746782d195fba341b0399be1ba1bea5d00a794897b8480"
+    "start": "node index.js -n ff184becdab95cb0 -w ff184becdab95cb0b6f45910a25070967d446689fbcf51f4e3df97baeea2d718 -i 863acd316fbf151d18746782d195fba341b0399be1ba1bea5d00a794897b8480"
   },
   "keywords": [],
   "author": "",

@@ -4,7 +4,7 @@ import ram from 'random-access-memory'
 import AutoBase from 'autobase'
 import HyperSwarm from 'hyperswarm'
 
-const args = minimist(process.argv, {
+const args = minimist(process.argv.slice(2), {
     alias: {
         writers: 'w',
         indexes: 'i',
@@ -15,7 +15,7 @@ const args = minimist(process.argv, {
         swarm: true
     },
     boolean: ['ram', 'swarm']
-})
+});
 
 export default class HyperNews {
     constructor() {
@@ -72,5 +72,4 @@ export default class HyperNews {
 }
 
 // const news = new HyperNews()
-
 
