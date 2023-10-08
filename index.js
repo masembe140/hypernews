@@ -3,7 +3,8 @@ import CoreStore from 'corestore';
 import ram from 'random-access-memory'
 import AutoBase from 'autobase'
 import HyperSwarm from 'hyperswarm'
-
+import HyperBee from 'hyperbee'
+//
 const args = minimist(process.argv.slice(2), {
     alias: {
         writers: 'w',
@@ -17,6 +18,8 @@ const args = minimist(process.argv.slice(2), {
     boolean: ['ram', 'swarm']
 });
 
+
+//
 export default class HyperNews {
     constructor() {
         this.store = new CoreStore(args.ram ? ram : (args.storage || 'hypernews')) //
@@ -63,6 +66,44 @@ export default class HyperNews {
         }
 
         this.info();
+        const self = this
+        this.autobase.start({
+            unwrap:true,
+            async apply(view, batch){
+                const beeBatch = self.bee.batch({update: false})
+                for(const node of batch){
+                    const nodeValue = JSON.parse(node.value)
+                    const hash = crypto.createHash('sha256');
+                    hash.update(nodeValue.data);
+
+                    if(nodeValue.type === 'post'){
+                        await beeBatch.put(`post${hash}`,{
+                            hash,
+                            votes:0,
+                            data: nodeValue.data
+                        })
+                    }
+
+                    if(nodeValue.type === 'vote'){
+                        const increment = nodeValue?.up ? 1:-1
+                        const theBee = await self.bee.get(`post${hash}`,{
+                            update: false
+                        })
+                        if(theBee){
+                            theBee.value.votes += increment
+                        }
+                        await theBee.put(`post${hash}`,theBee.value)
+
+                    }
+                }
+            }
+        })
+
+        this.bee = new HyperBee(this.autobase.view, {
+            extension: false,
+            valueEncoding: "json",
+            keyEncoding: 'utf-8'
+        })
 
     }
 
@@ -70,6 +111,7 @@ export default class HyperNews {
 
     }
 }
-
-// const news = new HyperNews()
+//
+// // const news = new HyperNews()
+//
 
