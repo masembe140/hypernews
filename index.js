@@ -4,6 +4,7 @@ import ram from 'random-access-memory'
 import AutoBase from 'autobase'
 import HyperSwarm from 'hyperswarm'
 import HyperBee from 'hyperbee'
+import crypto from 'crypto'
 //
 const args = minimist(process.argv.slice(2), {
     alias: {
@@ -28,9 +29,10 @@ export default class HyperNews {
         this.bee = null
         this.name = null //
     }
+
     async start() {
-        const writer = this.store.get({ name: 'writer' })
-        const viewOutput = this.store.get({ name: 'view' })
+        const writer = this.store.get({name: 'writer'})
+        const viewOutput = this.store.get({name: 'view'})
         await writer.ready()
         // read name from script or use the writer's key -- core.key
         this.name = args.name || writer.key.slice(0, 8).toString('hex')
@@ -46,7 +48,7 @@ export default class HyperNews {
             await this.autobase.addInput(this.store.get(Buffer.from(w, 'hex')))
         }
 
-       // add more output cores to autobase via the node process
+        // add more output cores to autobase via the node process
         for (const i of [].concat(args.indexes || [])) {
             await this.autobase.addOutput(this.store.get(Buffer.from(i, 'hex')))
         }
@@ -68,31 +70,32 @@ export default class HyperNews {
         this.info();
         const self = this
         this.autobase.start({
-            unwrap:true,
-            async apply(view, batch){
+            unwrap: true,
+            async apply(view, batch) {
                 const beeBatch = self.bee.batch({update: false})
-                for(const node of batch){
+                for (const node of batch) {
                     const nodeValue = JSON.parse(node.value)
-                    const hash = crypto.createHash('sha256');
+                    let hash = crypto.createHash('sha256');
                     hash.update(nodeValue.data);
+                    hash = hash.digest("hex")
 
-                    if(nodeValue.type === 'post'){
-                        await beeBatch.put(`post${hash}`,{
+                    if (nodeValue.type === 'post') {
+                        await beeBatch.put(`post${hash}`, {
                             hash,
-                            votes:0,
+                            votes: 0,
                             data: nodeValue.data
                         })
                     }
 
-                    if(nodeValue.type === 'vote'){
-                        const increment = nodeValue?.up ? 1:-1
-                        const theBee = await self.bee.get(`post${hash}`,{
+                    if (nodeValue.type === 'vote') {
+                        const increment = nodeValue?.up ? 1 : -1
+                        const theBee = await self.bee.get(`post${hash}`, {
                             update: false
                         })
-                        if(theBee){
+                        if (theBee) {
                             theBee.value.votes += increment
                         }
-                        await theBee.put(`post${hash}`,theBee.value)
+                        await theBee.put(`post${hash}`, theBee.value)
 
                     }
                 }
@@ -107,11 +110,29 @@ export default class HyperNews {
 
     }
 
-    info () {
+    info() {
+        console.log('Autobase setup. Pass this to run this same setup in another instance:')
+        console.log()
+        console.log('node index.js ' +
+            '-n ' + this.name + ' ' +
+            this.autobase.inputs.map(i => '-w ' + i.key.toString('hex')).join(' ') + ' ' +
+            this.autobase.outputs.map(i => '-i ' + i.key.toString('hex')).join(' ')
+        )
+        console.log()
+        console.log('To use another storage directory use --storage ./another')
+        console.log('To disable swarming add --no-swarm')
+        console.log()
+    }
 
+    async* all() {
+        for await (const data of this.bee.createReadStream({gt: 'posts!', lt: 'posts!~'})) {
+            yield data.value
+        }
     }
 }
 //
-// // const news = new HyperNews()
+const news = new HyperNews()
+
+await news.start()
 //
 
