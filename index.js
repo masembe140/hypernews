@@ -5,6 +5,7 @@ import AutoBase from 'autobase'
 import HyperSwarm from 'hyperswarm'
 import HyperBee from 'hyperbee'
 import crypto from 'crypto'
+import lexint from 'lexicographic-integer'
 const args = minimist(process.argv.slice(2), {
     alias: {
         writers: 'w',
@@ -67,23 +68,29 @@ class HyperNews {
                 const beeBatch = self.bee.batch({update: false})
                 for (const node of batch) {
                     const nodeValue = JSON.parse(node.value)
-                    const hash = sha256(nodeValue.data);
+
                     if (nodeValue.type === 'post') {
+                        const hash = sha256(nodeValue.data);
                         await beeBatch.put(`post!${hash}`, {
                             hash,
                             votes: 0,
                             data: nodeValue.data
                         })
+                        await beeBatch.put('top!' + lexint.pack(0, 'hex') + '!' + hash, hash)
                     }
                     if (nodeValue.type === 'vote') {
+                        const hash = nodeValue.hash;
                         const increment = nodeValue?.up ? 1 : -1
                         const blockEntryNode = await self.bee.get(`post!${hash}`, {
                             update: false
                         })
+                        await beeBatch.del('top!' + lexint.pack(blockEntryNode.value.votes, 'hex') + '!' + hash)
+
                         if (blockEntryNode) {
                             blockEntryNode.value.votes += increment
                         }
                         await beeBatch.put(`post!${hash}`, blockEntryNode.value)
+                        await beeBatch.put('top!' + lexint.pack(blockEntryNode.value.votes, 'hex') + '!' + hash, hash)
                     }
                 }
                 await beeBatch.flush()
@@ -118,6 +125,12 @@ class HyperNews {
     async * all () {
         for await (const data of this.bee.createReadStream({ gt: 'post!', lt: 'post!~' })) {
             yield data.value
+        }
+    }
+    async * top () {
+        for await (const data of this.bee.createReadStream({ gt: 'top!', lt: 'top!~', reverse: true })) {
+            const { value } = (await this.bee.get('post!' + data.value))
+            yield value
         }
     }
     async addPost(data) {
